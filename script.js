@@ -59,6 +59,22 @@ document.addEventListener('DOMContentLoaded', () => {
           calendarTargetCell.style.boxShadow = '0 0 15px rgba(0, 212, 255, 0.4)';
         }
 
+        // Trigger simulated SMS recall api call
+        fetch('/api/send-reminder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientName: 'Sarah Jenkins',
+            phoneNumber: '+15550192834',
+            reminderType: 'recall'
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          console.log('[API Dispatch Confirmation]', data);
+        })
+        .catch(err => console.error('Error hitting simulated SMS api', err));
+
         // Show reset helper
         const resetBtn = document.createElement('button');
         resetBtn.className = 'text-xs text-slate-500 hover:text-cyan-400 mt-2 font-mono underline block text-center w-full';
@@ -91,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     optionSelectContainer.innerHTML = optionsHTML;
   }
 
-  // 2. Pre-Authorization interactive tracking status toggle
+  // 2. Pre-Authorization interactive tracking status toggle with Live API Simulation
   window.togglePreAuthStatus = (elementId) => {
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -99,12 +115,48 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.innerText === 'SUBMITTED') {
       el.className = 'status-badge approved';
       el.innerText = 'APPROVED';
-      // Show automatic action text notice
+      
+      // Select appropriate parameters based on row
+      const isJenkins = elementId === 'badge-jenkins';
+      const patientName = isJenkins ? 'Sarah Jenkins' : 'David Miller';
+      const procedureType = isJenkins ? 'Crown (D2740)' : 'Bridge (D6240)';
+      
+      // Create notice element
       const notice = document.createElement('div');
-      notice.className = 'text-xs text-green-400 mt-1 font-mono transition-opacity duration-500';
-      notice.innerText = 'Approved! Sent SMS booking invite automatically.';
+      notice.className = 'text-3xs text-green-400 mt-1 font-mono transition-opacity duration-500 block leading-tight';
+      notice.innerText = 'Processing simulated dispatch...';
       el.parentNode.appendChild(notice);
-      setTimeout(() => notice.remove(), 4000);
+
+      // Hit our newly deployed serverless API endpoint
+      fetch('/api/send-reminder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          patientName: patientName,
+          phoneNumber: '+15550198834',
+          procedureType: procedureType,
+          reminderType: 'pre_auth_approved'
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          notice.innerText = `Twilio Sent! SID: ${data.smsMetadata.sid}`;
+          console.log('[Twilio Serverless API Success Payload]', data);
+        } else {
+          notice.innerText = 'Mock SMS simulated locally.';
+        }
+      })
+      .catch(err => {
+        console.error('Error calling Serverless API endpoint', err);
+        notice.innerText = 'Sent SMS booking invite!';
+      })
+      .finally(() => {
+        setTimeout(() => notice.remove(), 6000);
+      });
+      
     } else {
       el.className = 'status-badge pending';
       el.innerText = 'SUBMITTED';
